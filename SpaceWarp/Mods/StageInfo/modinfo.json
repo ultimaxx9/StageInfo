@@ -4,7 +4,7 @@
   "name": "Stage Info",
   "description": "Popup window that displays staging information",
   "source": "https://github.com/natalia-simonova/StageInfo",
-  "version": "0.3",
+  "version": "0.4",
   "dependencies": [],
   "ksp2_version": {
     "min": "0",
