@@ -1,0 +1,5 @@
+external_dlls/*.dll
+.vs
+obj/*
+!.gitignore
+bin/*

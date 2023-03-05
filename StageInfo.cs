@@ -1,4 +1,4 @@
-﻿using I2.Loc;
+﻿using KSP;
 using KSP.Game;
 using KSP.Messages;
 using KSP.Sim;
@@ -6,35 +6,33 @@ using KSP.Sim.DeltaV;
 using KSP.Sim.impl;
 using Newtonsoft.Json;
 using SpaceWarp.API;
-using SpaceWarp.API.Configuration;
-using SpaceWarp.API.Managers;
+using SpaceWarp.API.Mods.JSON;
+using SpaceWarp.API.UI;
+using SpaceWarp.API.UI.Appbar;
 using SpaceWarp.API.Mods;
+using SpaceWarp.API.Assets;
+using SpaceWarp.UI;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using UnityEngine;
 
+using SpaceWarp;
+using BepInEx;
+using BepInEx.Bootstrap;
+using System.EnterpriseServices;
+using KSP.Inspector;
+using KSP.UI.Binding;
+
 namespace StageInfo {
 
-    //[ModConfig]
-    //[JsonObject(MemberSerialization.OptOut)]
-    //public class StageInfoConfig {
-    //    [ConfigField("Update frequency during flight (in seconds)")]
-    //    [ConfigDefaultValue(0.1)]
-    //    public double inFlightUpdateInterval;
-    //    [ConfigField("TWR above this value displays as green")]
-    //    [ConfigDefaultValue(1.25)]
-    //    public double twrThresholdGreen;
-    //    [ConfigField("TWR below this value displays as red")]
-    //    [ConfigDefaultValue(1.0)]
-    //    public double twrThresholdRed;
-    //}
+    [BepInPlugin("com.Natalia.StageInfo", "StagInfoMod", "0.4.0")]
+    [BepInDependency(SpaceWarpPlugin.ModGuid, SpaceWarpPlugin.ModVer)]
 
-    [MainMod]
-    public class StageInfoMain : Mod {
+    public class StageInfoMain : BaseSpaceWarpPlugin {
 
+        private static StageInfoMain Instance { get; set; }
         private bool showGUI = false;
         private bool inVAB = false;
         private bool hideExtra = true;
@@ -42,29 +40,47 @@ namespace StageInfo {
         // private double updateInterval = 0.1;
         // private double lastUpdateUT = 0;
         private Rect layoutRect;
-        private GUISkin _spaceWarpUISkin;
+        private GUISkin _spaceWarpUISkin = Skins.ConsoleSkin;
         private GUIStyle horizontalDivider = new GUIStyle();
         private List<string> cels = new List<string>();
         private List<StageInfo> stageInfo = new List<StageInfo>();
         private AltUnits altUnits = AltUnits.Km;
         private enum AltUnits {
-            [Description("Km")] Km = 1000,
-            [Description("Mm")] Mm = 1000000,
-            [Description("Gm")] Gm = 1000000000
-        }
-
+            Km=1000,
+            Mm=1000000,
+            Gm=1000000000
+        };
+        
         public void Awake() => layoutRect = new Rect((Screen.width * 0.8632f) - (layoutWidth / 2), (Screen.height / 2) - 350, 0, 0);
+
         public override void OnInitialized() {
-            SpaceWarp.API.AssetBundles.ResourceManager.TryGetAsset($"space_warp/swconsoleui/swconsoleUI/spacewarpConsole.guiskin", out _spaceWarpUISkin);
-            SpaceWarpManager.RegisterAppButton("Stage Info", "BTN-StageInfoButton", SpaceWarpManager.LoadIcon(), delegate { showGUI = !showGUI; });
+
+            base.OnInitialized();
+            Instance = this;
+
+            Appbar.RegisterAppButton(
+                "Stage Info",
+                "BTN-StageInfoBtn",
+                AssetManager.GetAsset<Texture2D>($"{SpaceWarpMetadata.ModID}/images/icon.png"),
+                ToggleButton
+            ); ; ;
+            
             GameManager.Instance.Game.Messages.Subscribe<VesselDeltaVCalculationMessage>(ReceiveStageInfo);
             GameManager.Instance.Game.Messages.Subscribe<GameStateChangedMessage>(UpdateGameState);
             GameManager.Instance.Game.Messages.Subscribe<OpenEngineersReportWindowMessage>(ShowGUI);
             horizontalDivider.fixedHeight = 2;
             horizontalDivider.margin = new RectOffset(0, 0, 4, 4);
         }
-        
+
+        private void ToggleButton(bool toggle)
+        {
+            showGUI = toggle;
+            GameObject.Find("BTN-StageInfoBtn")?.GetComponent<UIValue_WriteBool_Toggle>()?.SetValue(toggle);
+
+        }
+
         private void ShowGUI(MessageCenterMessage msg) { showGUI = true; if (cels.Count == 0) cels = GetCelNames(); }
+
         private void UpdateGameState(MessageCenterMessage msg) {
             showGUI = false;
             inVAB = GameManager.Instance.Game.GlobalGameState.GetState() == GameState.VehicleAssemblyBuilder;
@@ -72,9 +88,10 @@ namespace StageInfo {
 
         public void OnGUI() {
             if (!showGUI) return;
-            GUI.skin = _spaceWarpUISkin;
+            GUI.skin = Skins.ConsoleSkin;
             layoutRect = GUILayout.Window(GUIUtility.GetControlID(FocusType.Passive), layoutRect, MainGUI, "<color=#22262E>========================</color>", GUILayout.Height(0), GUILayout.Width(layoutWidth));
         }
+
         private void MainGUI(int windowID) {
             GUILayout.BeginHorizontal();
             if (stageInfo.Count == 0) {
@@ -121,6 +138,7 @@ namespace StageInfo {
                 } else GUILayout.Label($"<color=#0D1C2A><i> ======= Empty Stage ======= </i></color>");
                 GUILayout.EndHorizontal();
             }
+
             if (inVAB && stageInfo.Any(s => !s.isCelSelected)) {
                 int i = stageInfo.FindIndex(s => !s.isCelSelected);
                 GUILayout.BeginHorizontal();

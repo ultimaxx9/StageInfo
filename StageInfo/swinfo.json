@@ -1,0 +1,13 @@
+{
+  "mod_id": "StageInfo",
+  "author": "Natalia Simonova",
+  "name": "Stage Info",
+  "description": "Popup window that displays staging information",
+  "source": "https://github.com/natalia-simonova/StageInfo",
+  "version": "0.5",
+  "dependencies": [],
+  "ksp2_version": {
+    "min": "0",
+    "max": "1"
+  }
+}
